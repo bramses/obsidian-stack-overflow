@@ -19,5 +19,5 @@
   },
   "include": [
     "**/*.ts"
-, "parse.ts"  ]
+  ]
 }
