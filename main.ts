@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, request, Setting } from 'obsidian';
 
 // Remember to rename these classes and interfaces!
 
@@ -21,6 +21,9 @@ export default class StackOverflowAnswers extends Plugin {
 			// Called when the user clicks the icon.
 			new Notice('This is a notice!');
 		});
+
+		const res = await request({url: 'https://stackoverflow.com/questions/14122919/how-to-hide-show-objects-using-three-js-release-54/14123978#14123978'})
+		console.log(res);
 
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass('my-plugin-ribbon-class');
