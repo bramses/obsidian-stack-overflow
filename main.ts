@@ -24,14 +24,35 @@ export default class StackOverflowAnswers extends Plugin {
 	settings: StackOverflowAnswerSettings;
 
 	extractAnswerId(url: string) {
-		return url.split("#").pop();
+		if (url.includes('#')) // in form of https://stackoverflow.com/questions/14122919/how-to-hide-show-objects-using-three-js-release-54/14123978#14123978
+			return url.split("#").pop();
+		
+		const urlPopped = url.split("/"); // in form of https://stackoverflow.com/a/32232028/3952024
+		urlPopped.pop();
+		return urlPopped.pop(); // second to last
+			
 	}
 
 	extractParagraphs(html: HTMLElement) {
 		const paragraphs: string [] = []
 		
 		html.querySelectorAll("p").forEach((p) => {
-			paragraphs.push(p.innerHTML);
+			const linksSelectors = p.querySelectorAll("a");
+			const links: string[] = [];
+
+			if (linksSelectors.length > 0) {
+				linksSelectors.forEach((link) => {
+					const href = link.getAttribute("href");
+					const src = link.innerText
+					links.push(href ? href : src);
+				});
+
+				let idx = 0;
+				p.innerHTML = p.innerHTML.replace(/<\s*a[^>]*>(.*?)<\s*\/\s*a>/g, (match) => { return links[idx++] }).replace(/<code>/g, '`').replace(/<\/code>/g, '`');
+				paragraphs.push(p.innerHTML);
+			} else {
+				paragraphs.push(p.innerHTML.replace(/<code>/g, '`').replace(/<\/code>/g, '`'));
+			}
 		});
 
 		return paragraphs;
@@ -41,11 +62,26 @@ export default class StackOverflowAnswers extends Plugin {
 		const codeBlocks: string [] = []
 
 		html.querySelectorAll("pre").forEach((pre) => {
-			console.log(pre.querySelectorAll("code"));
-			codeBlocks.push(pre.innerHTML);
+			codeBlocks.push(pre.innerText.replace('<code>', '').replace('</code>', ''));
 		});
 
 		return codeBlocks;
+	}
+
+	generateMarkdown (paragraphs: string [], codeBlocks: string [], url: string) {
+		let markdown = "";
+
+		paragraphs.forEach((p) => {
+			markdown += `> ${p}\n>\n`;
+		});
+
+		codeBlocks.forEach((c) => {
+			markdown += `\`\`\`\n${c}\n\`\`\`\n\n`;
+		});
+
+		markdown += `\n\n[View on Stack Overflow](${url})`;
+
+		return markdown;
 	}
 
 	async onload() {
@@ -62,7 +98,7 @@ export default class StackOverflowAnswers extends Plugin {
 		);
 
 
-		const url = "https://stackoverflow.com/questions/14122919/how-to-hide-show-objects-using-three-js-release-54/14123978#14123978"
+		const url = "https://stackoverflow.com/a/32232028/3952024"
 
 		const res = await request({
 			url: url,
@@ -77,30 +113,13 @@ export default class StackOverflowAnswers extends Plugin {
 				pre: true, // keep text content when parsing
 			},
 		});
+
 		const struct = root.getElementById(`answer-${this.extractAnswerId(url)}`).querySelector('div.js-post-body');
-		console.log(this.extractParagraphs(struct));
-		console.log(this.extractCodeBlocks(struct));
-		
-		/*
-		<p>Is the 'mesh' variable you are sending the 'traverseHierarchy' function an Object3d?
-		If so have you tried 'mesh.children' which should return an array of child objects, or you could use the traverse function on the mesh object.</p>
+		const ps = this.extractParagraphs(struct);
+		const cbs = this.extractCodeBlocks(struct);
 
-		<p>See: <a href="http://mrdoob.github.com/three.js/docs/54/#Reference/Core/Object3D" rel="noreferrer">http://mrdoob.github.com/three.js/docs/54/#Reference/Core/Object3D</a></p>
-
-		<pre><code>mesh.traverse(function(child) {
-			var z = document.getElementById("cameras").selectedIndex * 5 - 10;
-			if (z === -10) {
-				child.visible = true;
-			} else if (child.position.z !== z) {
-				child.visible = false;
-			} else {
-				child.visible = true;
-			};
-		});
-		</code></pre>
-		*/
-
-
+		const markdown = this.generateMarkdown(ps, cbs, url);
+		console.log(markdown);
 
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass("my-plugin-ribbon-class");
