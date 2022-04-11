@@ -1,16 +1,17 @@
+// many thanks to https://github.com/zolrath/obsidian-auto-link-title for in cursor replace code and the inspiration
 import {
 	App,
 	Editor,
 	MarkdownView,
-	Modal,
 	Notice,
 	Plugin,
 	PluginSettingTab,
 	request,
 	Setting,
 } from "obsidian";
-// import { parse, default as HTMLElement } from "node-html-parser/dist/nodes/html.js";
 import parse, { HTMLElement } from "node-html-parser";
+import { EditorExtensions } from "editor-enhancements";
+
 
 interface StackOverflowAnswerSettings {
 	mySetting: string;
@@ -24,18 +25,18 @@ export default class StackOverflowAnswers extends Plugin {
 	settings: StackOverflowAnswerSettings;
 
 	extractAnswerId(url: string) {
-		if (url.includes('#')) // in form of https://stackoverflow.com/questions/14122919/how-to-hide-show-objects-using-three-js-release-54/14123978#14123978
+		if (url.includes("#"))
+			// in form of https://stackoverflow.com/questions/14122919/how-to-hide-show-objects-using-three-js-release-54/14123978#14123978
 			return url.split("#").pop();
-		
+
 		const urlPopped = url.split("/"); // in form of https://stackoverflow.com/a/32232028/3952024
 		urlPopped.pop();
 		return urlPopped.pop(); // second to last
-			
 	}
 
 	extractParagraphs(html: HTMLElement) {
-		const paragraphs: string [] = []
-		
+		const paragraphs: string[] = [];
+
 		html.querySelectorAll("p").forEach((p) => {
 			const linksSelectors = p.querySelectorAll("a");
 			const links: string[] = [];
@@ -43,15 +44,24 @@ export default class StackOverflowAnswers extends Plugin {
 			if (linksSelectors.length > 0) {
 				linksSelectors.forEach((link) => {
 					const href = link.getAttribute("href");
-					const src = link.innerText
+					const src = link.innerText;
 					links.push(href ? href : src);
 				});
 
 				let idx = 0;
-				p.innerHTML = p.innerHTML.replace(/<\s*a[^>]*>(.*?)<\s*\/\s*a>/g, (match) => { return links[idx++] }).replace(/<code>/g, '`').replace(/<\/code>/g, '`');
+				p.innerHTML = p.innerHTML
+					.replace(/<\s*a[^>]*>(.*?)<\s*\/\s*a>/g, (match) => {
+						return links[idx++];
+					})
+					.replace(/<code>/g, "`")
+					.replace(/<\/code>/g, "`");
 				paragraphs.push(p.innerHTML);
 			} else {
-				paragraphs.push(p.innerHTML.replace(/<code>/g, '`').replace(/<\/code>/g, '`'));
+				paragraphs.push(
+					p.innerHTML
+						.replace(/<code>/g, "`")
+						.replace(/<\/code>/g, "`")
+				);
 			}
 		});
 
@@ -59,16 +69,18 @@ export default class StackOverflowAnswers extends Plugin {
 	}
 
 	extractCodeBlocks(html: HTMLElement) {
-		const codeBlocks: string [] = []
+		const codeBlocks: string[] = [];
 
 		html.querySelectorAll("pre").forEach((pre) => {
-			codeBlocks.push(pre.innerText.replace('<code>', '').replace('</code>', ''));
+			codeBlocks.push(
+				pre.innerText.replace("<code>", "").replace("</code>", "")
+			);
 		});
 
 		return codeBlocks;
 	}
 
-	generateMarkdown (paragraphs: string [], codeBlocks: string [], url: string) {
+	generateMarkdown(paragraphs: string[], codeBlocks: string[], url: string) {
 		let markdown = "";
 
 		paragraphs.forEach((p) => {
@@ -76,29 +88,26 @@ export default class StackOverflowAnswers extends Plugin {
 		});
 
 		codeBlocks.forEach((c) => {
-			markdown += `\`\`\`\n${c}\n\`\`\`\n\n`;
+			markdown += `\`\`\`\n${c}\n\`\`\`\n\n`.replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 		});
 
 		markdown += `\n\n[View on Stack Overflow](${url})`;
 
+		markdown += "\n\n---\n";
+
 		return markdown;
 	}
 
-	async onload() {
-		await this.loadSettings();
+	async conveyorBelt(url = "") {
+		if (url.length === 0) {
+			new Notice("[Stack Overflow Answers] - Nothing Selected");
+			return;
+		}
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon(
-			"dice",
-			"Sample Plugin",
-			(evt: MouseEvent) => {
-				// Called when the user clicks the icon.
-				new Notice("This is a notice!");
-			}
-		);
-
-
-		const url = "https://stackoverflow.com/a/32232028/3952024"
+		if (!url.includes("stackoverflow.com")) {
+			new Notice("[Stack Overflow Answers] - Invalid URL");
+			return;
+		}
 
 		const res = await request({
 			url: url,
@@ -114,71 +123,83 @@ export default class StackOverflowAnswers extends Plugin {
 			},
 		});
 
-		const struct = root.getElementById(`answer-${this.extractAnswerId(url)}`).querySelector('div.js-post-body');
+		const struct = root
+			.getElementById(`answer-${this.extractAnswerId(url)}`)
+			.querySelector("div.js-post-body");
 		const ps = this.extractParagraphs(struct);
 		const cbs = this.extractCodeBlocks(struct);
 
 		const markdown = this.generateMarkdown(ps, cbs, url);
-		console.log(markdown);
+		return markdown;
+	}
 
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass("my-plugin-ribbon-class");
+	// Custom hashid by @shabegom
+	private createBlockHash(): string {
+		let result = "";
+		const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
+		const charactersLength = characters.length;
+		for (let i = 0; i < 4; i++) {
+			result += characters.charAt(
+				Math.floor(Math.random() * charactersLength)
+			);
+		}
+		return result;
+	}
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText("Status Bar Text");
+	async convertUrlToTitledLink(editor: Editor, url: string): Promise<void> {
+		// Generate a unique id for find/replace operations for the title.
+		const pasteId = `Fetching Answer#${this.createBlockHash()}`;
 
-		// This adds a simple command that can be triggered anywhere
+		// Instantly paste so you don't wonder if paste is broken
+		editor.replaceSelection(`${pasteId}`);
+
+		// Fetch title from site, replace Fetching Title with actual title
+		const stackOverflowMarkdown = await this.conveyorBelt(url);
+
+		const text = editor.getValue();
+
+		const start = text.indexOf(pasteId);
+		if (start < 0) {
+			console.log(
+				`Unable to find text "${pasteId}" in current editor, bailing out; link ${url}`
+			);
+		} else {
+			const end = start + pasteId.length;
+			const startPos = EditorExtensions.getEditorPositionFromIndex(
+				text,
+				start
+			);
+			const endPos = EditorExtensions.getEditorPositionFromIndex(
+				text,
+				end
+			);
+
+			editor.replaceRange(stackOverflowMarkdown, startPos, endPos);
+		}
+	}
+
+	async onload() {
+		await this.loadSettings();
+
 		this.addCommand({
-			id: "open-sample-modal-simple",
-			name: "Open sample modal (simple)",
-			callback: () => {
-				new SampleModal(this.app).open();
+			id: "insert-stack-overflow-answer",
+			name: "Insert Stack Overflow Answer",
+			editorCallback: async (editor: Editor, view: MarkdownView) => {
+				const selectedText = (EditorExtensions.getSelectedText(editor) || "").trim();
+				this.convertUrlToTitledLink(editor, selectedText);
+				// const markdown = await this.conveyorBelt(editor.getSelection());
+				// editor.replaceSelection(markdown);
 			},
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: "sample-editor-command",
-			name: "Sample editor command",
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection("Sample Editor Command");
-			},
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: "open-sample-modal-complex",
-			name: "Open sample modal (complex)",
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView =
-					this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			},
+			hotkeys: [
+				{
+					modifiers: ["Mod", "Shift"],
+					key: "v",
+				},
+			],
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, "click", (evt: MouseEvent) => {
-			console.log("click", evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(
-			window.setInterval(() => console.log("setInterval"), 5 * 60 * 1000)
-		);
+		this.addSettingTab(new StackOverflowAnswerSettingsTab(this.app, this));
 	}
 
 	onunload() {}
@@ -196,23 +217,7 @@ export default class StackOverflowAnswers extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.setText("Woah!");
-	}
-
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
+class StackOverflowAnswerSettingsTab extends PluginSettingTab {
 	plugin: StackOverflowAnswers;
 
 	constructor(app: App, plugin: StackOverflowAnswers) {
@@ -225,7 +230,9 @@ class SampleSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl("h2", { text: "Settings for my awesome plugin." });
+		containerEl.createEl("h2", {
+			text: "Settings for Stack Overflow Answers",
+		});
 
 		new Setting(containerEl)
 			.setName("Setting #1")
