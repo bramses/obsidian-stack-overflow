@@ -80,18 +80,27 @@ export default class StackOverflowAnswers extends Plugin {
 		return codeBlocks;
 	}
 
-	generateMarkdown(paragraphs: string[], codeBlocks: string[], url: string) {
+	generateMarkdown(paragraphs: string[], codeBlocks: string[], url: string, question: string, questionURL: string) {
 		let markdown = "";
+
+		markdown += '\n\n---'
+
+		markdown += `\n\n# [${question}](https://stackoverflow.com/${questionURL})\n\n`;
 
 		paragraphs.forEach((p) => {
 			markdown += `> ${p}\n>\n`;
 		});
 
 		codeBlocks.forEach((c) => {
-			markdown += `\`\`\`\n${c}\n\`\`\`\n\n`.replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+			markdown += `\`\`\`\n${c}\n\`\`\`\n\n`
+			.replace(/&lt;/g, "<")
+			.replace(/&gt;/g, ">")
+			.replace(/&amp;/g, "&")
+			.replace(/&quot;/g, '"')
+			.replace(/&#39;/g, "'");
 		});
 
-		markdown += `\n\n[View on Stack Overflow](${url})`;
+		markdown += `\n\n[View Answer on Stack Overflow](${url})`;
 
 		markdown += "\n\n---\n";
 
@@ -126,10 +135,14 @@ export default class StackOverflowAnswers extends Plugin {
 		const struct = root
 			.getElementById(`answer-${this.extractAnswerId(url)}`)
 			.querySelector("div.js-post-body");
+
+		const question = root.getElementById("question-header").querySelector('a').innerText;
+		const questionURL = root.getElementById("question-header").querySelector('a').getAttribute("href");
+		
 		const ps = this.extractParagraphs(struct);
 		const cbs = this.extractCodeBlocks(struct);
 
-		const markdown = this.generateMarkdown(ps, cbs, url);
+		const markdown = this.generateMarkdown(ps, cbs, url, question, questionURL);
 		return markdown;
 	}
 
