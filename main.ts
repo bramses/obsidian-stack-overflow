@@ -184,7 +184,7 @@ export default class StackOverflowAnswers extends Plugin {
 		this.addCommand({
 			id: "insert-stack-overflow-answer",
 			name: "Insert Stack Overflow Answer",
-			editorCallback: async (editor: Editor, view: MarkdownView) => {
+			editorCallback: async (editor: Editor) => {
 				const selectedText = (EditorExtensions.getSelectedText(editor) || "").trim();
 				this.convertUrlToTitledLink(editor, selectedText);
 			},
