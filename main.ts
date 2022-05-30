@@ -187,8 +187,6 @@ export default class StackOverflowAnswers extends Plugin {
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				const selectedText = (EditorExtensions.getSelectedText(editor) || "").trim();
 				this.convertUrlToTitledLink(editor, selectedText);
-				// const markdown = await this.conveyorBelt(editor.getSelection());
-				// editor.replaceSelection(markdown);
 			},
 			hotkeys: [
 				{
