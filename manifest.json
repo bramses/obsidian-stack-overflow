@@ -3,7 +3,7 @@
 	"name": "Stack Overflow Answers",
 	"version": "1.0.1",
 	"minAppVersion": "0.12.0",
-	"description": "copy paste stack overflow answers",
+	"description": "Copy and Paste Stack Overflow answers directly into Obsidian.",
 	"author": "Bram Adams",
 	"authorUrl": "https://www.bramadams.dev/",
 	"isDesktopOnly": true
