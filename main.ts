@@ -1,28 +1,17 @@
 // many thanks to https://github.com/zolrath/obsidian-auto-link-title for in cursor replace code and the inspiration
 import {
-	App,
 	Editor,
 	MarkdownView,
 	Notice,
 	Plugin,
-	PluginSettingTab,
 	request,
-	Setting,
 } from "obsidian";
 import parse, { HTMLElement } from "node-html-parser";
 import { EditorExtensions } from "editor-enhancements";
 
 
-interface StackOverflowAnswerSettings {
-	mySetting: string;
-}
-
-const DEFAULT_SETTINGS: StackOverflowAnswerSettings = {
-	mySetting: "default",
-};
 
 export default class StackOverflowAnswers extends Plugin {
-	settings: StackOverflowAnswerSettings;
 
 	extractAnswerId(url: string) {
 		if (url.includes("#"))
@@ -192,8 +181,6 @@ export default class StackOverflowAnswers extends Plugin {
 	}
 
 	async onload() {
-		await this.loadSettings();
-
 		this.addCommand({
 			id: "insert-stack-overflow-answer",
 			name: "Insert Stack Overflow Answer",
@@ -210,55 +197,7 @@ export default class StackOverflowAnswers extends Plugin {
 				},
 			],
 		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new StackOverflowAnswerSettingsTab(this.app, this));
 	}
 
 	onunload() {}
-
-	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData()
-		);
-	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-}
-
-class StackOverflowAnswerSettingsTab extends PluginSettingTab {
-	plugin: StackOverflowAnswers;
-
-	constructor(app: App, plugin: StackOverflowAnswers) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const { containerEl } = this;
-
-		containerEl.empty();
-
-		containerEl.createEl("h2", {
-			text: "Settings for Stack Overflow Answers",
-		});
-
-		new Setting(containerEl)
-			.setName("Setting #1")
-			.setDesc("It's a secret")
-			.addText((text) =>
-				text
-					.setPlaceholder("Enter your secret")
-					.setValue(this.plugin.settings.mySetting)
-					.onChange(async (value) => {
-						console.log("Secret: " + value);
-						this.plugin.settings.mySetting = value;
-						await this.plugin.saveSettings();
-					})
-			);
-	}
 }
