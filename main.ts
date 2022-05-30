@@ -1,7 +1,6 @@
 // many thanks to https://github.com/zolrath/obsidian-auto-link-title for in cursor replace code and the inspiration
 import {
 	Editor,
-	MarkdownView,
 	Notice,
 	Plugin,
 	request,
