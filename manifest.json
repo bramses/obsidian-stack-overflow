@@ -6,5 +6,6 @@
 	"description": "Copy and Paste Stack Overflow answers directly into Obsidian.",
 	"author": "Bram Adams",
 	"authorUrl": "https://www.bramadams.dev/",
-	"isDesktopOnly": true
+	"isDesktopOnly": true,
+	"repo": "https://github.com/bramses/obsidian-stack-overflow"
 }

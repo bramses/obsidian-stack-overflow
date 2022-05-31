@@ -19,3 +19,8 @@ The default hotkey to insert a Stack Overflow answer is `cmd+shift+v`. This can 
 
 ![settings 1](./community-plugin-1.png)
 ![settings 2](./community-plugin-2.png)
+
+
+# Thanks To
+
+- [Obsidian Auto Link Title](https://github.com/zolrath/obsidian-auto-link-title) for easy url + cursor replacement code.
