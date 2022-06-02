@@ -13,13 +13,22 @@ import { EditorExtensions } from "editor-enhancements";
 export default class StackOverflowAnswers extends Plugin {
 
 	extractAnswerId(url: string) {
-		if (url.includes("#"))
-			// in form of https://stackoverflow.com/questions/14122919/how-to-hide-show-objects-using-three-js-release-54/14123978#14123978
-			return url.split("#").pop();
-
-		const urlPopped = url.split("/"); // in form of https://stackoverflow.com/a/32232028/3952024
-		urlPopped.pop();
-		return urlPopped.pop(); // second to last
+		try {
+			if (url.length === 0) {
+				new Notice("[Stack Overflow Answers] - url is empty");
+				return "";
+			}
+			if (url.includes("#"))
+				// in form of https://stackoverflow.com/questions/14122919/how-to-hide-show-objects-using-three-js-release-54/14123978#14123978
+				return url.split("#").pop();
+	
+			const urlPopped = url.split("/"); // in form of https://stackoverflow.com/a/32232028/3952024
+			urlPopped.pop();
+			return urlPopped.pop(); // second to last
+		} catch (err) {
+			new Notice("[Stack Overflow Answers] - Could not extract answer id from url");
+			return "";
+		}
 	}
 
 	extractParagraphs(html: HTMLElement) {
@@ -98,12 +107,12 @@ export default class StackOverflowAnswers extends Plugin {
 	async conveyorBelt(url = "") {
 		if (url.length === 0) {
 			new Notice("[Stack Overflow Answers] - Nothing Selected");
-			return;
+			return "";
 		}
 
 		if (!url.includes("stackoverflow.com")) {
 			new Notice("[Stack Overflow Answers] - Invalid URL");
-			return;
+			return "";
 		}
 
 		const res = await request({
@@ -187,12 +196,6 @@ export default class StackOverflowAnswers extends Plugin {
 				const selectedText = (EditorExtensions.getSelectedText(editor) || "").trim();
 				this.convertUrlToTitledLink(editor, selectedText);
 			},
-			hotkeys: [
-				{
-					modifiers: ["Mod", "Shift"],
-					key: "v",
-				},
-			],
 		});
 	}
 
